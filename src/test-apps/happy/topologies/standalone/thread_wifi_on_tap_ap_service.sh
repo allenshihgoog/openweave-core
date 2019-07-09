@@ -22,7 +22,11 @@
 # - one thread-wifi border_gateway device BorderRouter
 # - one access-point router onhub
 # - one service node instance cloud
-
+export PATH=$PATH:/usr/local/bin:$TRAVIS_BUILD_DIR/src/test-apps/happy/bin
+echo "1111111111111111111111"
+echo $USER
+echo $PATH
+echo "22222222222222222222222"
 happy-network-add HomeThread thread
 happy-network-address HomeThread 2001:db8:111:1::
 

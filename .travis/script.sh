@@ -38,8 +38,9 @@ die()
 ###############################################################
 gcc_check_happy()
 {
+    export PATH=$PATH:/usr/local/bin:$TRAVIS_BUILD_DIR/src/test-apps/happy/bin
     cmd_start="sudo make -f Makefile-Standalone DEBUG=1 TIMESTAMP=1 COVERAGE=1 "
-    cmd_end="BuildJobs=24 check"
+    cmd_end="BuildJobs=24 SUITE=servicedir coverage"
 
     if [ "lwip" in "${BUILD_TARGET}" ];then
         build_cmd="$cmd_start USE_LWIP=1 $cmd_end"
@@ -49,13 +50,12 @@ gcc_check_happy()
         build_folder="x86_64-unknown-linux-gnu"
     fi
 
-    mkdir -p $TRAVIS_BUILD_DIR/happy-test-logs/$1/from-tmp
+    mkdir -p $TRAVIS_BUILD_DIR/happy-test-logs/$1
     eval $build_cmd
-    make_status=${?}
+    #make_status=${?}
     cp $TRAVIS_BUILD_DIR/build/$build_folder/src/test-apps/happy $TRAVIS_BUILD_DIR/happy-test-logs/$1 -rf
-    cp /tmp/happy* $TRAVIS_BUILD_DIR/happy-test-logs/$1/from-tmp
     echo "please check happy-test-log/<UTC time> under link: https://storage.cloud.google.com/openweave"
-    return ${make_status}
+    return 2
 }
 
 case "${BUILD_TARGET}" in

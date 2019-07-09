@@ -1,91 +1,19 @@
-#
-#    Copyright 2018-2019 Google LLC. All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
-#
-
-#
-#    Description:
-#      This file is the Travis CI hosted, distributed continuous 
-#      integration configuration file for the OpenWeave Core library.
-#
-
 language: generic
-
 sudo: required
-
 before_install:
-  - .travis/before_install.sh
-
+- ".travis/before_install.sh"
 script:
-  - .travis/script.sh
-
+- ".travis/script.sh"
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
-
+- bash <(curl -s https://codecov.io/bash)
+after_failure:
+- ".travis/after_failure.sh"
 matrix:
   include:
-    - name: "Linux with Defaults against GCC Distribution Sanity Check"
-      env: BUILD_TARGET="linux-auto-gcc-distcheck" CC="gcc"
-      os: linux
-      compiler: gcc
-    - name: "Linux with Defaults against GCC Coding Style Check"
-      env: BUILD_TARGET="linux-auto-gcc-lint" CC="gcc"
-      os: linux
-      compiler: gcc
-    - name: "Linux with Defaults against clang/LLVM"
-      env: BUILD_TARGET="linux-auto-clang" CC="clang"
-      os: linux
-      compiler: clang
-    - name: "Linux with LWIP against clang/LLVM"
-      env: BUILD_TARGET="linux-lwip-clang" CC="clang"
-      os: linux
-      compiler: clang
-    - name: "OS X with Defaults against clang/LLVM"
-      env: BUILD_TARGET="osx-auto-clang" CC="clang"
-      os: osx
-      compiler: clang
-    - name: "OS X with LwIP against clang/LLVM"
-      env: BUILD_TARGET="osx-lwip-clang" CC="clang"
-      os: osx
-      compiler: clang
-    - name: "ESP32 (openweave-esp32-demo)"
-      env: BUILD_TARGET="esp32"
-    - name: "Linux with Defaults against GCC Functional and Unit Tests"
-      env: BUILD_TARGET="linux-auto-gcc-check" CC="gcc"
-      os: linux
-      compiler: gcc
-    - name: "Linux with LwIP against GCC Functional and Unit Tests"
-      env: BUILD_TARGET="linux-lwip-gcc-check" CC="gcc"
-      os: linux
-      compiler: gcc
-    - name: "Linux with Defaults against GCC Network and Service Tests"
-      os: linux
-      compiler: gcc
-      env: BUILD_TARGET="linux-auto-gcc-check-happy" TRAVIS_TAG="true"
-    - name: "Linux with LwIP against GCC Network and Service Tests"
-      os: linux
-      compiler: gcc
-      env: BUILD_TARGET="linux-lwip-gcc-check-happy" TRAVIS_TAG="true"
-
-#
-#   deploy description:
-#      Travis CI supports uploading to Google Cloud Storage (GCS).
-#      openweave gcs bucket location: happy-test-log/<build_number> under link: https://storage.cloud.google.com/openweave"
-#      tags: true: deployment is triggered if and only if $TRAVIS_TAG is set here.
-#      Travis-CI help link: https://docs.travis-ci.com/user/deployment/gcs/
-#
-
+  - name: Linux with Defaults against GCC Network and Service Tests
+    os: linux
+    compiler: gcc
+    env: BUILD_TARGET="linux-auto-gcc-check-happy" TRAVIS_TAG="true"
 deploy:
   provider: gcs
   access_key_id: GOOGNPZYTVTEPZM5VBRAVVUU
@@ -99,3 +27,6 @@ deploy:
   on:
     repo: openweave/openweave-core
     tags: true
+env:
+  global:
+    secure: FTcSFD+dWmpkDUKMCvNVg8dyZPFx91AljrWe6bT4vvEdFZs7ZGJz1VIEHXqLhDfF7igh5iXvXQ/pQKUWyctGEU0VrfGgeZB+szojOMn5NFKhWtZdNeqNn9SvBSko1/ToE/J1yg6GWVnERScL1lGaWjPPKr9O1uBYt7tqHl98jq6t4c/pX78Eisy85WlzVn9UpKC5XyaNjaGyhoHjt0zWQfb3pKcWCZd6rl2LCesCKL4UVhwWAUg0GCiTR98iIUjmEt6QLvSIiphTrbbEd/na+O+RbSUa9SG5Jk2KiAwfLTiGaIfZzltYEOX/i32CEzXTCJW9V0Fg9tujFipZwg+v0b2TDUW4hc+orYM+4NNkcyQmpS+GMP1HZfYz3FRtZAZ2Q39WNEpLU+0fdSoZL8MZC2DT7V9mIyuALxuZmZapOqbq1/OMO1s7LwqpR0J1lCGFAw8xV3ek24fkyqxghZhC/rOR9o+a5kn/2KT6lSZtfLTtXp0toOfZ/nGytCvFOm60RLj46Tz4iyoK/oQLV/F3r4tCyP/hfkec2GU+2++Dw1v3WJu9egrxAEEaW1jGWzZ5mr86waeBcFqFHy6wU2Nc7rckHeoMOoWgTF8qiyLT6muPDSfCbyu9G9PJQNPbIfso8GE1tibNPltOQKThI5cGcwYfB1tLa3GDvhRdC5prHDs=
