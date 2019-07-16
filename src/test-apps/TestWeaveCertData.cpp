@@ -91,8 +91,32 @@ void GetTestCert(int selector, const uint8_t *& certData, size_t& certDataLen)
     SELECT_CERT(FirmwareSigning);
     SELECT_CERT(FirmwareSigning_SHA256);
 
-    fprintf(stderr, "Unknown test certificated requested: %08X\n", selector);
+    fprintf(stderr, "Unknown test certificate requested: %08X\n", selector);
     exit(-1);
+}
+
+void GetTestCertAuthPrivKey(CertificateKeyId & authKeyId, EncodedECPrivateKey & authPrivKey)
+{
+    if (authKeyId.IsEqual(sTestCert_Root_CertificateKeyId))
+    {
+        authPrivKey.PrivKey = const_cast<uint8_t *>(sTestCert_Root_PrivateKey);
+        authPrivKey.PrivKeyLen = sTestCertLength_Root_PrivateKey;
+    }
+    else if (authKeyId.IsEqual(sTestCert_CA_CertificateKeyId))
+    {
+        authPrivKey.PrivKey = const_cast<uint8_t *>(sTestCert_CA_PrivateKey);
+        authPrivKey.PrivKeyLen = sTestCertLength_CA_PrivateKey;
+    }
+    else if (authKeyId.IsEqual(sTestCert_SelfSigned_CertificateKeyId))
+    {
+        authPrivKey.PrivKey = const_cast<uint8_t *>(sTestCert_SelfSigned_PrivateKey);
+        authPrivKey.PrivKeyLen = sTestCertLength_SelfSigned_PrivateKey;
+    }
+    else
+    {
+        fprintf(stderr, "Unknown test certificate authority key requested\n");
+        exit(-1);
+    }
 }
 
 const char *GetTestCertName(int selector)
@@ -299,12 +323,26 @@ extern const uint8_t sTestCert_Root_PublicKey[] =
 
 extern const size_t sTestCertLength_Root_PublicKey = sizeof(sTestCert_Root_PublicKey);
 
+extern const uint8_t sTestCert_Root_PrivateKey[] =
+{
+    0x11, 0x52, 0x92, 0x20, 0xF3, 0x8A, 0xAE, 0x81, 0x12, 0x63, 0xD5, 0xA2, 0xF4, 0xC2, 0x96, 0x96,
+    0xCB, 0x91, 0xA3, 0x93, 0xF3, 0x27, 0x0C, 0xB7, 0x97, 0x71, 0xE6, 0xF4
+};
+
+extern const size_t sTestCertLength_Root_PrivateKey = sizeof(sTestCert_Root_PrivateKey);
+
 extern const uint8_t sTestCert_Root_SubjectKeyId[] =
 {
     0x4D, 0x98, 0x12, 0x4C, 0xED, 0xDD, 0x1E, 0x1F
 };
 
 extern const size_t sTestCertLength_Root_SubjectKeyId = sizeof(sTestCert_Root_SubjectKeyId);
+
+extern const CertificateKeyId sTestCert_Root_CertificateKeyId =
+{
+    .Id  = sTestCert_Root_SubjectKeyId,
+    .Len = sTestCertLength_Root_SubjectKeyId
+};
 
 extern const uint32_t sTestCert_Root_CurveOID = nl::Weave::Profiles::Security::kWeaveCurveId_secp224r1;
 
@@ -530,6 +568,28 @@ extern const uint8_t sTestCert_CA_DER[] =
 
 extern const size_t sTestCertLength_CA_DER = sizeof(sTestCert_CA_DER);
 
+extern const uint8_t sTestCert_CA_PrivateKey[] =
+{
+    0xDB, 0x25, 0xD6, 0x23, 0x8C, 0xF5, 0x1C, 0xFF, 0xF0, 0xD4, 0xC0, 0xD7, 0x4F, 0xFC, 0xDE, 0x78,
+    0xFA, 0xB2, 0x66, 0xD5, 0xF6, 0x83, 0xD2, 0x4E, 0xA2, 0xA8, 0x61, 0x9A
+};
+
+extern const size_t sTestCertLength_CA_PrivateKey = sizeof(sTestCert_CA_PrivateKey);
+
+extern const uint8_t sTestCert_CA_SubjectKeyId[] =
+{
+    0x46, 0xF3, 0xF1, 0xAF, 0xDE, 0x30, 0x78, 0x9F
+};
+
+extern const size_t sTestCertLength_CA_SubjectKeyId = sizeof(sTestCert_CA_SubjectKeyId);
+
+extern const CertificateKeyId sTestCert_CA_CertificateKeyId =
+{
+    .Id  = sTestCert_CA_SubjectKeyId,
+    .Len = sTestCertLength_CA_SubjectKeyId
+};
+
+extern const uint64_t sTestCert_CA_Id = 0x18B430EEFF000002ULL;
 
 /*
     CA_SHA256 Certificate
@@ -974,6 +1034,26 @@ extern const uint8_t sTestCert_SelfSigned_DER[] =
 
 extern const size_t sTestCertLength_SelfSigned_DER = sizeof(sTestCert_SelfSigned_DER);
 
+extern const uint8_t sTestCert_SelfSigned_PrivateKey[] =
+{
+    0x01, 0x4E, 0x16, 0x02, 0xC5, 0x02, 0xA1, 0xD4, 0xB5, 0xAE, 0xED, 0x8E, 0x26, 0x3E, 0x50, 0xF4,
+    0xAA, 0xA3, 0x3E, 0x41, 0x4A, 0x35, 0x86, 0x67, 0x9B, 0xBF, 0x18, 0x81, 0xC5, 0x1F, 0x88, 0x33
+};
+
+extern const size_t sTestCertLength_SelfSigned_PrivateKey = sizeof(sTestCert_SelfSigned_PrivateKey);
+
+extern const uint8_t sTestCert_SelfSigned_SubjectKeyId[] =
+{
+    0x4A, 0x42, 0x07, 0xA8, 0xB0, 0x14, 0xC3, 0x7B
+};
+
+extern const size_t sTestCertLength_SelfSigned_SubjectKeyId = sizeof(sTestCert_SelfSigned_SubjectKeyId);
+
+extern const CertificateKeyId sTestCert_SelfSigned_CertificateKeyId =
+{
+    .Id  = sTestCert_SelfSigned_SubjectKeyId,
+    .Len = sTestCertLength_SelfSigned_SubjectKeyId
+};
 
 
 /*

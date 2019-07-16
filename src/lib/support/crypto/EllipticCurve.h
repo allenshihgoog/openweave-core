@@ -66,6 +66,11 @@ using nl::Weave::ASN1::OID;
 class EncodedECPublicKey
 {
 public:
+    enum
+    {
+        kMaxValueLength = 2 * ((WEAVE_CONFIG_MAX_EC_BITS + 7) / 8) + 1
+    };
+
     uint8_t *ECPoint;                   // X9.62 format
     uint16_t ECPointLen;
 
@@ -91,6 +96,11 @@ public:
 class EncodedECPrivateKey
 {
 public:
+    enum
+    {
+        kMaxValueLength = ((WEAVE_CONFIG_MAX_EC_BITS + 7) / 8) + 1
+    };
+
     uint8_t *PrivKey;                   // Integer in big-endian format
     uint16_t PrivKeyLen;
 

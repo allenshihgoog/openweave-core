@@ -274,6 +274,10 @@ protected:
 extern WEAVE_ERROR DecodeWeaveCert(const uint8_t *weaveCert, uint32_t weaveCertLen, WeaveCertificateData& certData);
 extern WEAVE_ERROR DecodeWeaveCert(TLVReader& reader, WeaveCertificateData& certData);
 
+extern WEAVE_ERROR GenerateWeaveDeviceId(uint64_t & deviceId);
+extern WEAVE_ERROR GenerateWeaveDeviceOpCredentials(WeaveCertificateData& deviceCertData, EncodedECPrivateKey& devicePrivKey);
+extern WEAVE_ERROR GenerateWeaveCert(WeaveCertificateData& certData, EncodedECPrivateKey& authPrivKey);
+
 extern WEAVE_ERROR DecodeWeaveDN(TLVReader& reader, WeaveDN& dn);
 
 extern WEAVE_ERROR ConvertX509CertToWeaveCert(const uint8_t *x509Cert, uint32_t x509CertLen, uint8_t *weaveCertBuf, uint32_t weaveCertBufSize, uint32_t& weaveCertLen);

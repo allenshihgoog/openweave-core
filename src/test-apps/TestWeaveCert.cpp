@@ -36,6 +36,8 @@ using namespace nl::Weave::ASN1;
 
 using namespace nl::TestCerts;
 
+#define DEBUG_PRINT_ENABLE 0
+
 #define VerifyOrFail(TST, MSG, ...) \
 do { \
     if (!(TST)) \
@@ -687,6 +689,321 @@ void WeaveCertTest_CertType()
     printf("%s passed\n", __FUNCTION__);
 }
 
+static bool CompareCertData(WeaveCertificateData & certData1, WeaveCertificateData & certData2)
+{
+    if (!certData1.SubjectDN.IsEqual(certData2.SubjectDN))
+        return false;
+    if (!certData1.IssuerDN.IsEqual(certData2.IssuerDN))
+        return false;
+    if (!certData1.SubjectKeyId.IsEqual(certData2.SubjectKeyId))
+        return false;
+    if (!certData1.AuthKeyId.IsEqual(certData2.AuthKeyId))
+        return false;
+    if (!certData1.PublicKey.EC.IsEqual(certData2.PublicKey.EC))
+        return false;
+    if (certData1.PubKeyCurveId != certData2.PubKeyCurveId)
+        return false;
+    if (certData1.CertFlags != certData2.CertFlags)
+        return false;
+    if (certData1.KeyUsageFlags != certData2.KeyUsageFlags)
+        return false;
+    if (certData1.PubKeyAlgoOID != certData2.PubKeyAlgoOID)
+        return false;
+    if (certData1.SigAlgoOID != certData2.SigAlgoOID)
+        return false;
+    if (certData1.KeyPurposeFlags != certData2.KeyPurposeFlags)
+        return false;
+    if (certData1.NotBeforeDate != certData2.NotBeforeDate)
+        return false;
+    if (certData1.NotAfterDate != certData2.NotAfterDate)
+        return false;
+
+    return true;
+}
+
+void WeaveCertTest_GenerateWeaveCert()
+{
+    WEAVE_ERROR err;
+    WeaveCertificateSet templateCertSet;
+    WeaveCertificateSet generatedCertSet;
+    WeaveCertificateData * generatedCertData;
+    uint8_t outCertBuf[kTestCertBufSize];
+    EncodedECPrivateKey authPrivKey;
+
+    static int sTestCases[] =
+    {
+        kTestCert_Root,
+        kTestCert_Root_SHA256,
+        kTestCert_CA,
+        kTestCert_CA_SHA256,
+        kTestCert_Dev,
+        kTestCert_Dev_SHA256,
+        kTestCert_SelfSigned,
+        kTestCert_SelfSigned_SHA256,
+        // TODO: Need Service and FirmwareSigning CA Keys.
+        // kTestCert_ServiceEndpoint,
+        // kTestCert_ServiceEndpoint_SHA256,
+        // kTestCert_FirmwareSigning,
+        // kTestCert_FirmwareSigning_SHA256,
+    };
+    static const size_t sNumTestCases = sizeof(sTestCases) / sizeof(sTestCases[0]);
+
+    for (unsigned i = 0; i < sNumTestCases; i++)
+    {
+        int testCase = sTestCases[i];
+
+        // Initialize the certificate set and load the test certificate, which is used as a template to generate new certificate..
+        templateCertSet.Init(1, kTestCertBufSize);
+        LoadTestCert(templateCertSet, testCase);
+
+        // Initialize certificate buffer.
+        templateCertSet.Certs[0].EncodedCert = outCertBuf;
+        templateCertSet.Certs[0].EncodedCertLen = sizeof(outCertBuf);
+
+        // Get test certificate authority private key.
+        GetTestCertAuthPrivKey(templateCertSet.Certs[0].AuthKeyId, authPrivKey);
+
+        // Generate new certificate using template test certificate data.
+        err = GenerateWeaveCert(templateCertSet.Certs[0], authPrivKey);
+        SuccessOrFail(err, "Test Case %u: GenerateWeaveCert() returned error", i);
+
+        // Initialize the certificate set and load the generated certificate.
+        err = generatedCertSet.Init(1, kTestCertBufSize);
+        SuccessOrFail(err, "Test Case %u: generatedCertSet.Init() returned error", i);
+
+        err = generatedCertSet.LoadCert(outCertBuf, templateCertSet.Certs[0].EncodedCertLen, kDecodeFlag_GenerateTBSHash, generatedCertData);
+        SuccessOrFail(err, "Test Case %u: generatedCertSet.LoadCert() returned error", i);
+
+        // Compare generated certificate data to the template certificate data.
+        VerifyOrFail(CompareCertData(templateCertSet.Certs[0], generatedCertSet.Certs[0]), "Test Case %u: CompareCertData() Failed", i);
+
+#if DEBUG_PRINT_ENABLE
+        printf("%s Certificate (%d bytes):\n", GetTestCertName(testCase), templateCertSet.Certs[0].EncodedCertLen);
+        DumpMemoryCStyle(outCertBuf, templateCertSet.Certs[0].EncodedCertLen, "    ", 16);
+#endif
+    }
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
+static const ASN1UniversalTime sTestCert_ValidTimeNotBefore = {
+    .Year   = 2016,
+    .Month  = 04,
+    .Day    = 20,
+    .Hour   = 20,
+    .Minute = 30,
+    .Second = 32
+};
+
+static const ASN1UniversalTime sTestCert_ValidTimeNotAfter = {
+    .Year   = 2026,
+    .Month  = 04,
+    .Day    = 20,
+    .Hour   = 20,
+    .Minute = 30,
+    .Second = 31
+};
+
+static const ASN1UniversalTime sTestCert_EffectiveTime = {
+    .Year   = 2016,
+    .Month  = 05,
+    .Day    = 15,
+    .Hour   = 00,
+    .Minute = 00,
+    .Second = 00
+};
+
+void WeaveCertTest_GenerateWeaveDeviceCert()
+{
+    WEAVE_ERROR err;
+    WeaveCertificateSet certSet;
+    ValidationContext validContext;
+    WeaveCertificateData* cert;
+    WeaveCertificateData certData;
+    uint8_t outCertBuf[kTestCertBufSize];
+    uint8_t devicePubKeyBuf[EncodedECPublicKey::kMaxValueLength];
+    uint8_t devicePrivKeyBuf[EncodedECPrivateKey::kMaxValueLength];
+    EncodedECPrivateKey devicePrivKey;
+    EncodedECPrivateKey authPrivKey;
+    uint32_t packedNotBeforeTime;
+    uint32_t packedNotAfterTime;
+    uint64_t deviceId;
+    uint8_t subjectKeyIdBuf[8];
+
+    authPrivKey.PrivKey = const_cast<uint8_t *>(sTestCert_CA_PrivateKey);
+    authPrivKey.PrivKeyLen = sTestCertLength_CA_PrivateKey;
+
+    err = PackCertTime(sTestCert_ValidTimeNotBefore, packedNotBeforeTime);
+    SuccessOrFail(err, "PackCertTime() returned error");
+
+    err = PackCertTime(sTestCert_ValidTimeNotAfter, packedNotAfterTime);
+    SuccessOrFail(err, "PackCertTime() returned error");
+
+    err = GenerateWeaveDeviceId(deviceId);
+    SuccessOrFail(err, "GenerateWeaveDeviceId() returned error");
+
+    certData.SubjectDN.AttrOID = ASN1::kOID_AttributeType_WeaveDeviceId;
+    certData.SubjectDN.AttrValue.WeaveId = deviceId;
+    certData.IssuerDN.AttrOID = ASN1::kOID_AttributeType_WeaveCAId;
+    certData.IssuerDN.AttrValue.WeaveId = sTestCert_CA_Id;
+
+    err = nl::Weave::Platform::Security::GetSecureRandomData(subjectKeyIdBuf, sizeof(subjectKeyIdBuf));
+    SuccessOrFail(err, "GetSecureRandomData() returned error");
+
+    certData.SubjectKeyId.Id = subjectKeyIdBuf;
+    certData.SubjectKeyId.Len = sizeof(subjectKeyIdBuf);
+
+    certData.AuthKeyId.Id = sTestCert_CA_SubjectKeyId;
+    certData.AuthKeyId.Len = sTestCertLength_CA_SubjectKeyId;
+    certData.PubKeyCurveId = nl::Weave::Profiles::Security::kWeaveCurveId_secp224r1;
+    certData.EncodedCert = outCertBuf;
+    certData.EncodedCertLen = sizeof(outCertBuf);
+    certData.CertFlags = kCertFlag_ExtPresent_BasicConstraints |
+                         kCertFlag_ExtPresent_KeyUsage |
+                         kCertFlag_ExtPresent_ExtendedKeyUsage |
+                         kCertFlag_ExtPresent_SubjectKeyId |
+                         kCertFlag_ExtPresent_AuthKeyId;
+    certData.KeyUsageFlags = kKeyUsageFlag_DigitalSignature |
+                             kKeyUsageFlag_KeyEncipherment;
+    certData.PubKeyAlgoOID = kOID_PubKeyAlgo_ECPublicKey;
+    certData.SigAlgoOID = kOID_SigAlgo_ECDSAWithSHA256;
+    certData.KeyPurposeFlags = kKeyPurposeFlag_ServerAuth |
+                               kKeyPurposeFlag_ClientAuth;
+    certData.NotBeforeDate = PackedCertTimeToDate(packedNotBeforeTime);
+    certData.NotAfterDate = PackedCertTimeToDate(packedNotAfterTime);
+
+    certData.PublicKey.EC.ECPoint = devicePubKeyBuf;
+    certData.PublicKey.EC.ECPointLen = sizeof(devicePubKeyBuf);
+
+    devicePrivKey.PrivKey = devicePrivKeyBuf;
+    devicePrivKey.PrivKeyLen = sizeof(devicePrivKeyBuf);
+
+    err = GenerateECDHKey(WeaveCurveIdToOID(certData.PubKeyCurveId), certData.PublicKey.EC, devicePrivKey);
+    SuccessOrFail(err, "GenerateECDHKey() returned error");
+
+    err = GenerateWeaveCert(certData, authPrivKey);
+    SuccessOrFail(err, "GenerateWeaveCert() returned error");
+
+#if DEBUG_PRINT_ENABLE
+    printf("Generated Weave Device Certificate (%d bytes):\n", certData.EncodedCertLen);
+    DumpMemoryCStyle(outCertBuf, certData.EncodedCertLen, "    ", 16);
+#endif
+
+    // Initialize the certificate set and load the test certificates.
+    certSet.Init(kStandardCertsCount, kTestCertBufSize);
+    LoadTestCert(certSet, kTestCert_Root_SHA256 | kDecodeFlag_IsTrusted);
+    LoadTestCert(certSet, kTestCert_CA_SHA256   | kDecodeFlag_GenerateTBSHash);
+
+    // Load generated device certificate.
+    err = certSet.LoadCert(outCertBuf, certData.EncodedCertLen, kDecodeFlag_GenerateTBSHash, cert);
+    SuccessOrFail(err, "LoadCert() returned error");
+
+    // Initialize the validation context.
+    memset(&validContext, 0, sizeof(validContext));
+    SetEffectiveTime(validContext, sTestCert_EffectiveTime.Year, sTestCert_EffectiveTime.Month, sTestCert_EffectiveTime.Day);
+    validContext.ValidateFlags = kValidateFlag_RequireSHA256;
+    validContext.RequiredKeyUsages = kKeyUsageFlag_DigitalSignature |
+                                     kKeyUsageFlag_KeyEncipherment;
+    validContext.RequiredKeyPurposes = kKeyPurposeFlag_ServerAuth |
+                                       kKeyPurposeFlag_ClientAuth;
+    validContext.RequiredCertType = kCertType_Device;
+
+    // Validate generated certificate.
+    err = certSet.ValidateCert(*cert, validContext);
+    SuccessOrFail(err, "ValidateCert() returned error");
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
+void WeaveCertTest_GenerateWeaveDeviceOpCredentials()
+{
+    WEAVE_ERROR err;
+    WeaveCertificateSet certSet;
+    ValidationContext validContext;
+    WeaveCertificateData* cert;
+    WeaveCertificateData certData;
+    uint8_t outCertBuf[kTestCertBufSize];
+    uint8_t devicePrivKeyBuf[EncodedECPrivateKey::kMaxValueLength];
+    EncodedECPrivateKey devicePrivKey;
+    uint32_t packedNotBeforeTime;
+    uint32_t packedNotAfterTime;
+    uint64_t deviceId;
+    uint8_t subjectKeyIdBuf[8];
+
+    err = PackCertTime(sTestCert_ValidTimeNotBefore, packedNotBeforeTime);
+    SuccessOrFail(err, "PackCertTime() returned error");
+
+    err = PackCertTime(sTestCert_ValidTimeNotAfter, packedNotAfterTime);
+    SuccessOrFail(err, "PackCertTime() returned error");
+
+    err = GenerateWeaveDeviceId(deviceId);
+    SuccessOrFail(err, "GenerateWeaveDeviceId() returned error");
+
+    certData.SubjectDN.AttrOID = ASN1::kOID_AttributeType_WeaveDeviceId;
+    certData.SubjectDN.AttrValue.WeaveId = deviceId;
+    certData.IssuerDN.AttrOID = ASN1::kOID_AttributeType_WeaveDeviceId;
+    certData.IssuerDN.AttrValue.WeaveId = deviceId;
+
+    err = nl::Weave::Platform::Security::GetSecureRandomData(subjectKeyIdBuf, sizeof(subjectKeyIdBuf));
+    SuccessOrFail(err, "GetSecureRandomData() returned error");
+
+    certData.SubjectKeyId.Id = subjectKeyIdBuf;
+    certData.SubjectKeyId.Len = sizeof(subjectKeyIdBuf);
+    certData.AuthKeyId.Id = subjectKeyIdBuf;
+    certData.AuthKeyId.Len = sizeof(subjectKeyIdBuf);
+
+    certData.PubKeyCurveId = nl::Weave::Profiles::Security::kWeaveCurveId_prime256v1;
+    certData.EncodedCert = outCertBuf;
+    certData.EncodedCertLen = sizeof(outCertBuf);
+    certData.CertFlags = kCertFlag_ExtPresent_BasicConstraints |
+                         kCertFlag_ExtPresent_KeyUsage |
+                         kCertFlag_ExtPresent_ExtendedKeyUsage |
+                         kCertFlag_ExtPresent_SubjectKeyId |
+                         kCertFlag_ExtPresent_AuthKeyId;
+    certData.KeyUsageFlags = kKeyUsageFlag_DigitalSignature |
+                             kKeyUsageFlag_KeyEncipherment;
+    certData.PubKeyAlgoOID = kOID_PubKeyAlgo_ECPublicKey;
+    certData.SigAlgoOID = kOID_SigAlgo_ECDSAWithSHA256;
+    certData.KeyPurposeFlags = kKeyPurposeFlag_ServerAuth |
+                               kKeyPurposeFlag_ClientAuth;
+    certData.NotBeforeDate = PackedCertTimeToDate(packedNotBeforeTime);
+    certData.NotAfterDate = PackedCertTimeToDate(packedNotAfterTime);
+
+    devicePrivKey.PrivKey = devicePrivKeyBuf;
+    devicePrivKey.PrivKeyLen = sizeof(devicePrivKeyBuf);
+
+    err = GenerateWeaveDeviceOpCredentials(certData, devicePrivKey);
+    SuccessOrFail(err, "GenerateWeaveCertAndPrivKey() returned error");
+
+#if DEBUG_PRINT_ENABLE
+    printf("Generated Weave Device Self-Signed Certificate (%d bytes):\n", certData.EncodedCertLen);
+    DumpMemoryCStyle(outCertBuf, certData.EncodedCertLen, "    ", 16);
+#endif
+
+    // Initialize the certificate set.
+    certSet.Init(1, kTestCertBufSize);
+
+    // Load generated self-signed certificate.
+    err = certSet.LoadCert(outCertBuf, certData.EncodedCertLen, kDecodeFlag_IsTrusted, cert);
+    SuccessOrFail(err, "LoadCert() returned error");
+
+    // Initialize the validation context.
+    memset(&validContext, 0, sizeof(validContext));
+    SetEffectiveTime(validContext, sTestCert_EffectiveTime.Year, sTestCert_EffectiveTime.Month, sTestCert_EffectiveTime.Day);
+    validContext.ValidateFlags = kValidateFlag_RequireSHA256;
+    validContext.RequiredKeyUsages = kKeyUsageFlag_DigitalSignature |
+                                     kKeyUsageFlag_KeyEncipherment;
+    validContext.RequiredKeyPurposes = kKeyPurposeFlag_ServerAuth |
+                                       kKeyPurposeFlag_ClientAuth;
+    validContext.RequiredCertType = kCertType_Device;
+
+    // Validate generated certificate.
+    err = certSet.ValidateCert(*cert, validContext);
+    SuccessOrFail(err, "ValidateCert() returned error");
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
 int main(int argc, char *argv[])
 {
     WeaveCertTest_WeaveToX509();
@@ -695,5 +1012,8 @@ int main(int argc, char *argv[])
     WeaveCertTest_CertValidTime();
     WeaveCertTest_CertUsage();
     WeaveCertTest_CertType();
+    WeaveCertTest_GenerateWeaveCert();
+    WeaveCertTest_GenerateWeaveDeviceCert();
+    WeaveCertTest_GenerateWeaveDeviceOpCredentials();
     printf("All tests passed.\n");
 }

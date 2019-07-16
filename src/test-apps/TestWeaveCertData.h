@@ -25,11 +25,11 @@
 #ifndef TESTWEAVECERTDATA_H_
 #define TESTWEAVECERTDATA_H_
 
-
 namespace nl {
 namespace TestCerts {
 
 using namespace nl::Weave::Profiles::Security;
+using namespace nl::Weave::ASN1;
 
 enum
 {
@@ -67,6 +67,7 @@ enum
 };
 
 extern void GetTestCert(int selector, const uint8_t *& certData, size_t& certDataLen);
+extern void GetTestCertAuthPrivKey(CertificateKeyId & authKeyId, EncodedECPrivateKey & authPrivKey);
 extern const char *GetTestCertName(int selector);
 extern void LoadTestCert(WeaveCertificateSet& certSet, int selector);
 
@@ -80,8 +81,11 @@ extern const size_t sTestCertLength_Root_DER;
 
 extern const uint8_t sTestCert_Root_PublicKey[];
 extern const size_t sTestCertLength_Root_PublicKey;
+extern const uint8_t sTestCert_Root_PrivateKey[];
+extern const size_t sTestCertLength_Root_PrivateKey;
 extern const uint8_t sTestCert_Root_SubjectKeyId[];
 extern const size_t sTestCertLength_Root_SubjectKeyId;
+extern const CertificateKeyId sTestCert_Root_CertificateKeyId;
 extern const uint32_t sTestCert_Root_CurveOID;
 extern const uint64_t sTestCert_Root_Id;
 
@@ -94,6 +98,13 @@ extern const uint8_t sTestCert_CA_Weave[];
 extern const size_t sTestCertLength_CA_Weave;
 extern const uint8_t sTestCert_CA_DER[];
 extern const size_t sTestCertLength_CA_DER;
+
+extern const uint8_t sTestCert_CA_PrivateKey[];
+extern const size_t sTestCertLength_CA_PrivateKey;
+extern const uint8_t sTestCert_CA_SubjectKeyId[];
+extern const size_t sTestCertLength_CA_SubjectKeyId;
+extern const CertificateKeyId sTestCert_CA_CertificateKeyId;
+extern const uint64_t sTestCert_CA_Id;
 
 extern const uint8_t sTestCert_CA_SHA256_Weave[];
 extern const size_t sTestCertLength_CA_SHA256_Weave;
@@ -114,6 +125,12 @@ extern const uint8_t sTestCert_SelfSigned_Weave[];
 extern const size_t sTestCertLength_SelfSigned_Weave;
 extern const uint8_t sTestCert_SelfSigned_DER[];
 extern const size_t sTestCertLength_SelfSigned_DER;
+
+extern const uint8_t sTestCert_SelfSigned_PrivateKey[];
+extern const size_t sTestCertLength_SelfSigned_PrivateKey;
+extern const uint8_t sTestCert_SelfSigned_SubjectKeyId[];
+extern const size_t sTestCertLength_SelfSigned_SubjectKeyId;
+extern const CertificateKeyId sTestCert_SelfSigned_CertificateKeyId;
 
 extern const uint8_t sTestCert_SelfSigned_SHA256_Weave[];
 extern const size_t sTestCertLength_SelfSigned_SHA256_Weave;
